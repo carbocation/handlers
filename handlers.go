@@ -139,6 +139,15 @@ func (l *hijackLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return conn, rw, err
 }
 
+// accounts for reverse proxies such as that by nginx
+func buildRemoteAddr(req *http.Request) string {
+	if x := req.Header.Get("X-Forwarded-For"); x != `` {
+		return x
+	}
+
+	return req.RemoteAddr
+}
+
 // buildCommonLogLine builds a log entry for req in Apache Common Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
@@ -150,10 +159,10 @@ func buildCommonLogLine(w io.Writer, req *http.Request, ts time.Time, status int
 		}
 	}
 
-	host, _, err := net.SplitHostPort(req.RemoteAddr)
+	host, _, err := net.SplitHostPort(buildRemoteAddr(req))
 
 	if err != nil {
-		host = req.RemoteAddr
+		host = buildRemoteAddr(req)
 	}
 
 	io.WriteString(w, host+" - "+username+" ["+ts.Format("02/Jan/2006:15:04:05 -0700")+`] "`+req.Method+" "+req.URL.RequestURI()+" "+req.Proto+`" `+strconv.Itoa(status)+" "+strconv.Itoa(size))
